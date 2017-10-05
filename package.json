@@ -1,0 +1,17 @@
+{
+  "name": "harvey",
+  "version": "1.0.0",
+  "description": "Harvey is a Slack bot that can report the hours from Harvest for your team on a weekly or monthly basis",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=testing node index.js",
+    "start": "NODE_ENV=production node index.js"
+  },
+  "author": "Invoke",
+  "license": "MIT",
+  "dependencies": {
+    "moment": "^2.18.1",
+    "node-fetch": "^1.7.3",
+    "underscore": "^1.8.3"
+  }
+}
