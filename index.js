@@ -2,6 +2,7 @@ const request = require('node-fetch');
 const _ = require('underscore');
 const moment = require('moment');
 
+// load up the config for the app
 const config = require('./config.json');
 
 // get the times from the last week
@@ -13,6 +14,7 @@ const end = moment().day(config.endWeek);
 const endYMD = end.format('YYYY-MM-DD');
 const endFormatted = end.format('dddd, MMMM Do YYYY');
 
+// only used when config.schedule === 'month'
 const startOfMonth = moment().subtract(1, 'months').startOf('month');
 const startOfMonthYMD = startOfMonth.format('YYYY-MM-DD');
 const startOfMonthFormatted = startOfMonth.format('MMMM YYYY');
@@ -20,6 +22,7 @@ const startOfMonthFormatted = startOfMonth.format('MMMM YYYY');
 const endOfMonth = moment().subtract(1, 'months').endOf('month');
 const endOfMonthYMD = endOfMonth.format('YYYY-MM-DD');
 
+// easy mapping for when the config.schedule changes
 const url = {
   week: `https://api.harvestapp.com/v2/time_entries?from=${startYMD}&to=${endYMD}`,
   month: `https://api.harvestapp.com/v2/time_entries?from=${startOfMonthYMD}&to=${endOfMonthYMD}`
@@ -31,6 +34,7 @@ const formattedDates = {
 };
 
 const getTimeEntries = function() {
+  // used for local development
   if (process.env.NODE_ENV != 'production') {
     return new Promise(function(resolve) {
       resolve({
@@ -53,7 +57,7 @@ const getTimeEntries = function() {
   });
 };
 
-// add up all the hours for the array of entries
+// add and merge up all the entries for an array of attachments for slack
 const sumEntryHours = function(entries) {
   const results = _.groupBy(entries, (entry) => {
     return entry.user.name;
@@ -61,12 +65,14 @@ const sumEntryHours = function(entries) {
 
   const attachments = Object.keys(results)
     .map((name) => {
+      // we calculate the hours and add them to the top level for sorting
       const hours = _.pluck(results[name], 'hours').reduce((a, b) => a + b, 0);
+
       return {
         hours,
         fallback: `${name} only has ${hours} hours for the ${config.schedule} of ${formattedDates[config.schedule]}.`,
         color: "#c93742",
-        title: `:${name.split(' ')[0].toLowerCase()}: ${name}`,
+        title: `:${name.split(' ')[0].toLowerCase()}: ${name}`, // we have slack emojis for each :firstname: of our team
         fields: [{
           name: `:${name.split(' ')[0].toLowerCase()}:`,
           value: `Missing ${(config.minimumHours - hours).toFixed(2)} hours`,
@@ -75,6 +81,7 @@ const sumEntryHours = function(entries) {
       };
     })
     .filter((entry) => {
+      // do they have enough hours to be left out?
       return entry.hours < config.minimumHours;
     });
 
@@ -96,6 +103,7 @@ getTimeEntries()
   })
   .then(sumEntryHours)
   .then((attachments) => {
+    // we assume everything is cool to start
     let message = {
       username: config.botName,
       icon_url: config.botIcon,
@@ -103,6 +111,7 @@ getTimeEntries()
       attachments
     };
 
+    // oh wait, there are messages to send
     if (attachments.length > 0) {
       message = {
         username: config.botName,
@@ -127,3 +136,14 @@ getTimeEntries()
   .catch((err) => {
     console.error(err);
   });
+
+process.on('uncaughtException', (err) => {
+  console.log('uncaughtException', err.stack);
+});
+
+process.on('unhandledRejection', (reason, p) => {
+  console.log('unhandledRejection', {
+    p,
+    reason
+  });
+});
