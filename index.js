@@ -68,13 +68,16 @@ const sumEntryHours = function(entries) {
       // we calculate the hours and add them to the top level for sorting
       const hours = _.pluck(results[name], 'hours').reduce((a, b) => a + b, 0);
 
+      // we have slack emojis for each :firstname: of our team
+      const slackEmojiName = name.split(' ')[0].toLowerCase();
+
       return {
         hours,
         fallback: `${name} only has ${hours} hours for the ${config.schedule} of ${formattedDates[config.schedule]}.`,
         color: "#c93742",
-        title: `:${name.split(' ')[0].toLowerCase()}: ${name}`, // we have slack emojis for each :firstname: of our team
+        title: `:${slackEmojiName}: ${name}`,
         fields: [{
-          name: `:${name.split(' ')[0].toLowerCase()}:`,
+          name: `:${slackEmojiName}:`,
           value: `Missing ${(config.minimumHours - hours).toFixed(2)} hours`,
           short: true
         }]
