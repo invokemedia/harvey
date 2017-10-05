@@ -3,6 +3,8 @@ Harvey
 
 > Harvey is a Slack bot that can report the hours from Harvest for your team on a weekly or monthly basis.
 
+![harvey screenshot](https://raw.githubusercontent.com/invokemedia/harvey/master/screenshot.png)
+
 ### Authentication
 
 You need to have a Bearer token for an *admin user* before you can use this script.
