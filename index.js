@@ -22,18 +22,24 @@ const startOfMonthFormatted = startOfMonth.format('MMMM YYYY');
 const endOfMonth = moment().subtract(1, 'months').endOf('month');
 const endOfMonthYMD = endOfMonth.format('YYYY-MM-DD');
 
+let page = 1;
+
 // easy mapping for when the config.schedule changes
-const url = {
-  week: `https://api.harvestapp.com/v2/time_entries?from=${startYMD}&to=${endYMD}`,
-  month: `https://api.harvestapp.com/v2/time_entries?from=${startOfMonthYMD}&to=${endOfMonthYMD}`
+const urlObj = {
+  week: `https://api.harvestapp.com/v2/time_entries?from=${startYMD}&to=${endYMD}&page=`,
+  month: `https://api.harvestapp.com/v2/time_entries?from=${startOfMonthYMD}&to=${endOfMonthYMD}&page=`
 };
+
+function getURL() {
+  return urlObj[config.schedule] + page;
+}
 
 const formattedDates = {
   week: `_${startFormatted}_ to _${endFormatted}_`,
   month: `_${startOfMonthFormatted}_`
 };
 
-const getTimeEntries = function() {
+const getTimeEntries = function(currentURL) {
   // used for local development
   if (process.env.NODE_ENV != 'production') {
     return new Promise(function(resolve) {
@@ -45,7 +51,7 @@ const getTimeEntries = function() {
     });
   }
 
-  return request(url[config.schedule], {
+  return request(currentURL, {
     method: 'get',
     headers: {
       'user-agent': `Reports (${config.accountEmail})`,
@@ -97,42 +103,73 @@ function toTitleCase(str) {
   });
 }
 
-getTimeEntries()
+function postToSlack(attachments) {
+  const prefix = (process.env.NODE_ENV != 'production') ? "======!TESTING======\n" : '';
+  // we assume everything is cool to start
+  let message = {
+    username: config.botName,
+    icon_url: config.botIcon,
+    text: `:tada: *All hours entered* for the ${config.schedule} of ${formattedDates[config.schedule]}.\n_I love you!_ :kissing_heart:`,
+    attachments
+  };
+
+  // oh wait, there are messages to send
+  if (attachments.length > 0) {
+    message = {
+      username: config.botName,
+      icon_url: config.botIcon,
+      text: `${prefix}*The following users have missing hours*.\n${toTitleCase(config.schedule)} of ${formattedDates[config.schedule]}.`,
+      attachments
+    };
+  }
+
+  return request(config.slackUrl, {
+    method: 'post',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(message)
+  });
+}
+
+function manyGetTimeEntries(res) {
+  const iter = Array.apply(null, {
+    length: res.total_pages
+  }).map(Number.call, Number);
+
+  // create an array of promises
+  return iter.map((val, index) => {
+    page = index + 1;
+    return getTimeEntries(getURL());
+  });
+}
+
+getTimeEntries(getURL())
   .then((res) => {
     return res.json();
   })
-  .then((res) => {
-    return res.time_entries;
+  .then(manyGetTimeEntries)
+  .then((requests) => {
+    return Promise.all(requests);
+  })
+  .then((responses) => {
+    // res.json() returns a promise
+    return responses.map(res => res.json());
+  })
+  .then((jsonResponse) => {
+    return Promise.all(jsonResponse);
+  })
+  .then((entries) => {
+    // get the nested results
+    return entries.map(entry => entry.time_entries);
+  })
+  .then((timeEntries) => {
+    // flatten so we can now sum the hours and groupBy the names easier
+    return _.flatten(timeEntries, true);
   })
   .then(sumEntryHours)
-  .then((attachments) => {
-    // we assume everything is cool to start
-    let message = {
-      username: config.botName,
-      icon_url: config.botIcon,
-      text: `:tada: *All hours entered* for the ${config.schedule} of ${formattedDates[config.schedule]}.\n_I love you!_ :kissing_heart:`,
-      attachments
-    };
-
-    // oh wait, there are messages to send
-    if (attachments.length > 0) {
-      message = {
-        username: config.botName,
-        icon_url: config.botIcon,
-        text: `*The following users have missing hours*.\n${toTitleCase(config.schedule)} of ${formattedDates[config.schedule]}.`,
-        attachments
-      };
-    }
-
-    return request(config.slackUrl, {
-      method: 'post',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(message)
-    });
-  })
+  .then(postToSlack)
   .then(() => {
     console.log('posted to slack');
   })
