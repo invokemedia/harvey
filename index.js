@@ -109,7 +109,7 @@ function postToSlack(attachments) {
   let message = {
     username: config.botName,
     icon_url: config.botIcon,
-    text: `:tada: *All hours entered* for the ${config.schedule} of ${formattedDates[config.schedule]}.\n_I love you!_ :kissing_heart:`,
+    text: `${prefix}:tada: *All hours entered* for the ${config.schedule} of ${formattedDates[config.schedule]}.\n_I love you!_ :kissing_heart:`,
     attachments
   };
 
