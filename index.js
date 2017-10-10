@@ -104,7 +104,7 @@ function toTitleCase(str) {
 }
 
 function postToSlack(attachments) {
-  const prefix = (process.env.NODE_ENV != 'production') ? "======!TESTING======\n" : '';
+  const prefix = (process.env.NODE_ENV != 'production') ? "======!TESTING======\n" : '@channel ';
   // we assume everything is cool to start
   let message = {
     username: config.botName,

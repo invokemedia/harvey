@@ -25,4 +25,4 @@ By changing the `config.schedule` from `week` to `month`, you can control the ra
 
 ### Testing
 
-You can create a json file in the root and then set a `testFile` in the config. This can be used for testing the application locally without making calls to the Harvest API.
+You can create a json file in the root and then set a `testFile` in the config. This can be used for testing the application locally without making calls to the Harvest API. Make sure you update `total_pages` so that there is only 1 page or the app will break.
