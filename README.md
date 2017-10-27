@@ -50,7 +50,7 @@ Example of the expected JSON file:
 }
 ```
 
-It expects an object keyed by the current year, and then an array of dates in `YYYY-mm-dd` format inside of that.
+It expects an object keyed by the current year, and then an array of dates in `YYYY-MM-DD` format inside of that.
 
 If the `holidayUrl` field is empty or undefined, holidays will not be accounted for.
 
