@@ -3,11 +3,13 @@
   "startWeek": -6,
   "endWeek": 0,
   "minimumHours": 37.5,
+  "minimumDailyHours": 7.5,
   "botName": "Harvey",
   "botIcon": "https://i.imgur.com/wJeRxyu.png",
   "accountEmail": "",
   "harvestAccountId": "",
   "bearerToken": "",
   "slackUrl": "",
+  "holidayUrl": "",
   "testFile": null
 }

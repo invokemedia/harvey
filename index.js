@@ -104,7 +104,7 @@ function toTitleCase(str) {
 }
 
 function postToSlack(attachments) {
-  const prefix = (process.env.NODE_ENV != 'production') ? "======!TESTING======\n" : '<!channel> ';
+  const prefix = (process.env.NODE_ENV != 'production') ? "======TESTING======\n" : '<!channel> ';
   // we assume everything is cool to start
   let message = {
     username: config.botName,
@@ -145,7 +145,45 @@ function manyGetTimeEntries(res) {
   });
 }
 
-getTimeEntries(getURL())
+function holidays() {
+  if (!config.holidayUrl || config.holidayUrl.trim() === "") {
+    return Promise.resolve();
+  }
+
+  return new Promise(function(resolve, reject) {
+    request(config.holidayUrl, {
+        method: 'get',
+        headers: {
+          'accept': 'application/json',
+          'content-type': 'application/json'
+        }
+      })
+      .then((res) => {
+        return res.json();
+      })
+      .then((res) => {
+        const yearHolidays = res[moment().year()];
+        if (typeof(yearHolidays) === 'undefined') {
+          resolve();
+        }
+
+        for (let day of yearHolidays) {
+          // does the day belong in the previous week?
+          if (moment(day).isBetween(startYMD, endYMD)) {
+            config.minimumHours -= config.minimumDailyHours;
+            console.log(day, 'was a holiday last this week');
+          }
+        }
+
+        resolve();
+      });
+  });
+}
+
+holidays()
+  .then(() => {
+    return getTimeEntries(getURL())
+  })
   .then((res) => {
     return res.json();
   })
