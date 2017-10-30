@@ -187,6 +187,13 @@ holidays()
   .then((res) => {
     return res.json();
   })
+  .then((res) => {
+    if (res.error_description) {
+      throw new Error(res.error_description);
+    }
+
+    return res;
+  })
   .then(manyGetTimeEntries)
   .then((requests) => {
     return Promise.all(requests);
