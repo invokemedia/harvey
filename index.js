@@ -30,6 +30,14 @@ const urlObj = {
   month: `https://api.harvestapp.com/v2/time_entries?from=${startOfMonthYMD}&to=${endOfMonthYMD}&page=`
 };
 
+const requestHeaders = {
+  'user-agent': `Reports (${config.accountEmail})`,
+  'harvest-account-id': `${config.harvestAccountId}`,
+  authorization: `Bearer ${config.bearerToken}`,
+  'accept': 'application/json',
+  'content-type': 'application/json'
+};
+
 function getURL() {
   return urlObj[config.schedule] + page;
 }
@@ -39,10 +47,10 @@ const formattedDates = {
   month: `_${startOfMonthFormatted}_`
 };
 
-const getTimeEntries = function(currentURL) {
+const getTimeEntries = function (currentURL) {
   // used for local development
   if (process.env.NODE_ENV != 'production') {
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       resolve({
         json: () => {
           return (config.testFile) ? require(config.testFile) : {};
@@ -53,38 +61,22 @@ const getTimeEntries = function(currentURL) {
 
   return request(currentURL, {
     method: 'get',
-    headers: {
-      'user-agent': `Reports (${config.accountEmail})`,
-      'harvest-account-id': `${config.harvestAccountId}`,
-      authorization: `Bearer ${config.bearerToken}`,
-      'accept': 'application/json',
-      'content-type': 'application/json'
-    }
+    headers: requestHeaders
   });
 };
 
 // add and merge up all the entries for an array of attachments for slack
-const sumEntryHours = function(entries) {
-  const results = _.groupBy(entries, (entry) => {
-    return entry.user.name;
-  });
-
-  const attachments = Object.keys(results)
-    .map((name) => {
-      // we calculate the hours and add them to the top level for sorting
-      const hours = _.pluck(results[name], 'hours').reduce((a, b) => a + b, 0);
-
-      // we have slack emojis for each :firstname: of our team
-      const slackEmojiName = name.split(' ')[0].toLowerCase();
-
+const prepareSlackAttachments = function (preparedUsers) {
+  const attachments = preparedUsers
+    .map((user) => {
       return {
-        hours,
-        fallback: `${name} only has ${hours} hours for the ${config.schedule} of ${formattedDates[config.schedule]}.`,
-        color: "#c93742",
-        title: `:${slackEmojiName}: ${name}`,
+        hours: user.hours,
+        fallback: `${user.name} only has ${user.hours} hours for the ${config.schedule} of ${formattedDates[config.schedule]}.`,
+        color: '#c93742',
+        title: `:${user.slackEmojiName}: ${user.name}`,
         fields: [{
-          name: `:${slackEmojiName}:`,
-          value: `Missing ${(config.minimumHours - hours).toFixed(2)} hours`,
+          name: `:${user.slackEmojiName}:`,
+          value: `Missing ${(config.minimumHours - user.hours).toFixed(2)} hours`,
           short: true
         }]
       };
@@ -98,13 +90,13 @@ const sumEntryHours = function(entries) {
 };
 
 function toTitleCase(str) {
-  return str.replace(/\w\S*/g, function(txt) {
+  return str.replace(/\w\S*/g, function (txt) {
     return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
   });
 }
 
 function postToSlack(attachments) {
-  const prefix = (process.env.NODE_ENV != 'production') ? "======TESTING======\n" : '<!channel> ';
+  const prefix = (process.env.NODE_ENV != 'production') ? '======TESTING======\n' : '<!channel> ';
   // we assume everything is cool to start
   let message = {
     username: config.botName,
@@ -146,24 +138,24 @@ function manyGetTimeEntries(res) {
 }
 
 function holidays() {
-  if (!config.holidayUrl || config.holidayUrl.trim() === "") {
+  if (!config.holidayUrl || config.holidayUrl.trim() === '') {
     return Promise.resolve();
   }
 
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     request(config.holidayUrl, {
-        method: 'get',
-        headers: {
-          'accept': 'application/json',
-          'content-type': 'application/json'
-        }
-      })
+      method: 'get',
+      headers: {
+        'accept': 'application/json',
+        'content-type': 'application/json'
+      }
+    })
       .then((res) => {
         return res.json();
       })
       .then((res) => {
         const yearHolidays = res[moment().year()];
-        if (typeof(yearHolidays) === 'undefined') {
+        if (typeof (yearHolidays) === 'undefined') {
           resolve();
         }
 
@@ -171,7 +163,7 @@ function holidays() {
           // does the day belong in the previous week?
           if (moment(day).isBetween(startYMD, endYMD)) {
             config.minimumHours -= config.minimumDailyHours;
-            console.log(day, 'was a holiday last this week');
+            console.log(day, 'was a holiday last week');
           }
         }
 
@@ -180,47 +172,93 @@ function holidays() {
   });
 }
 
-holidays()
-  .then(() => {
-    return getTimeEntries(getURL())
-  })
-  .then((res) => {
-    return res.json();
-  })
-  .then((res) => {
-    if (res.error_description) {
-      throw new Error(res.error_description);
-    }
-
-    return res;
-  })
-  .then(manyGetTimeEntries)
-  .then((requests) => {
-    return Promise.all(requests);
-  })
-  .then((responses) => {
-    // res.json() returns a promise
-    return responses.map(res => res.json());
-  })
-  .then((jsonResponse) => {
-    return Promise.all(jsonResponse);
-  })
-  .then((entries) => {
-    // get the nested results
-    return entries.map(entry => entry.time_entries);
-  })
-  .then((timeEntries) => {
-    // flatten so we can now sum the hours and groupBy the names easier
-    return _.flatten(timeEntries, true);
-  })
-  .then(sumEntryHours)
-  .then(postToSlack)
-  .then(() => {
-    console.log('posted to slack');
-  })
-  .catch((err) => {
-    console.error(err);
+const getUserList = function () {
+  return request('https://api.harvestapp.com/v2/users', {
+    method: 'get',
+    headers: requestHeaders
   });
+};
+
+function main() {
+  let users = [];
+
+  getUserList()
+    .then((res) => {
+      return res.json();
+    })
+    .then((res) => {
+      users = res.users
+        .filter((user) => {
+          // remove users that are contractors or are not billable
+          return user.is_active && !user.is_contractor && user.cost_rate !== null;
+        })
+        .map((user) => {
+          return {
+            name: `${user.first_name} ${user.last_name}`,
+            hours: 0, // starting hours
+            // we have slack emojis for each :firstname: of our team
+            slackEmojiName: user.first_name.split(' ')[0].toLowerCase()
+          };
+        });
+
+      return;
+    })
+    .then(holidays)
+    .then(() => {
+      return getTimeEntries(getURL());
+    })
+    .then((res) => {
+      return res.json();
+    })
+    .then((res) => {
+      if (res.error_description) {
+        throw new Error(res.error_description);
+      }
+
+      return res;
+    })
+    .then(manyGetTimeEntries)
+    .then((requests) => {
+      return Promise.all(requests);
+    })
+    .then((responses) => {
+      // res.json() returns a promise
+      return responses.map(res => res.json());
+    })
+    .then((jsonResponse) => {
+      return Promise.all(jsonResponse);
+    })
+    .then((entries) => {
+      // get the nested results
+      return entries.map(entry => entry.time_entries);
+    })
+    .then((timeEntries) => {
+      // flatten so we can now sum the hours and groupBy the names easier
+      return _.flatten(timeEntries, true);
+    })
+    .then((entries) => {
+      const groupped = _.groupBy(entries, (entry) => {
+        return entry.user.name;
+      });
+
+      // sums the hours based on the time entries
+      return users
+        .map((user) => {
+          user.hours = _.pluck(groupped[user.name], 'hours').reduce((a, b) => a + b, 0);
+          return user;
+        });
+    })
+    .then(prepareSlackAttachments)
+    .then(postToSlack)
+    .then(() => {
+      console.log('posted to slack');
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+}
+
+main();
 
 process.on('uncaughtException', (err) => {
   console.log('uncaughtException', err.stack);
