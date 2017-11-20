@@ -159,9 +159,12 @@ function holidays() {
           resolve();
         }
 
+        const checkStart = start.subtract(1, 'days').format('YYYY-MM-DD');
+        const checkEnd = end.add(1, 'days').format('YYYY-MM-DD');
+
         for (let day of yearHolidays) {
-          // does the day belong in the previous week?
-          if (moment(day).isBetween(startYMD, endYMD)) {
+          // does the day fit between the start and end of the previous week?
+          if (moment(day).isBetween(checkStart, checkEnd)) {
             config.minimumHours -= config.minimumDailyHours;
             console.log(day, 'was a holiday last week');
           }
