@@ -190,6 +190,9 @@ function main() {
       return res.json();
     })
     .then((res) => {
+      if (!res.users) {
+        throw new Error('No users found. Token expired?');
+      }
       users = res.users
         .filter((user) => {
           // remove users that are contractors or are not billable
