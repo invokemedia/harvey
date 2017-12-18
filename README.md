@@ -9,6 +9,33 @@ Harvey
 
 You need to have a Bearer token for an *admin user* before you can use this script.
 
+#### oAuth Page
+
+Create an application on Harvest. Then visit the link to the oAuth page using your `client_id`:
+
+```
+https://id.getharvest.com/oauth2/authorize?client_id=CLIENT_ID_HERE&response_type=code
+```
+
+Then you need to get an access code for that user. That will be in the URL that is returned from the oAuth page. It will be something like this:
+
+```
+https://app.getpostman.com/oauth2/callback?code=SOME.CODE_WILL_BE_HERE&scope=harvest%3AAPP_ID
+```
+
+After that, you need to get the a new token for that user:
+
+```
+curl --request POST \
+  --url https://id.getharvest.com/api/v1/oauth2/token \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'code=SOME.CODE_WILL_BE_HERE&client_id=MY_CLIENT_ID_IS_HERE&client_secret=MY_CLIENT_SECRET_IS_HERE&grant_type=authorization_code'
+```
+
+That will return a JSON object. You will then use the value in the `access_code` field as the `bearerToken` in your local `config.json`.
+
+Yeah, that was a lot of steps. Thanks, Harvest!
+
 ### Setup
 
 * clone this repo
