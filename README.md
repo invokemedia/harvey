@@ -32,9 +32,11 @@ curl --request POST \
   --data 'code=SOME.CODE_WILL_BE_HERE&client_id=MY_CLIENT_ID_IS_HERE&client_secret=MY_CLIENT_SECRET_IS_HERE&grant_type=authorization_code'
 ```
 
-That will return a JSON object. You will then use the value in the `access_code` field as the `bearerToken` in your local `config.json`.
+That will return a JSON object. You will then use the value in the `access_token` field as the `bearerToken` and the `refresh_token` field as the `refreshToken` in your local `config.json`.
 
-Yeah, that was a lot of steps. Thanks, Harvest!
+*Yeah, that was a lot of steps. Thanks, Harvest!*
+
+Now, the app will automatically refresh the token each time the request is made. This means the token should last forever as a new one is generated and saved over the `config.json` each time.
 
 ### Setup
 

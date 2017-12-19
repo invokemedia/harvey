@@ -8,8 +8,12 @@
   "botIcon": "https://i.imgur.com/wJeRxyu.png",
   "accountEmail": "",
   "harvestAccountId": "",
+  "clientId": "",
+  "clientSecret": "",
   "bearerToken": "",
+  "refreshToken": "",
   "slackUrl": "",
   "holidayUrl": "",
-  "testFile": null
+  "testFile": null,
+  "updatedAt": null
 }

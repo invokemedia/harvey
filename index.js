@@ -1,9 +1,10 @@
+const writeFile = require('util').promisify(require('fs').writeFile);
 const request = require('node-fetch');
 const _ = require('underscore');
 const moment = require('moment');
 
 // load up the config for the app
-const config = require('./config.json');
+let config = require('./config.json');
 
 // get the times from the last week
 const start = moment().day(config.startWeek);
@@ -30,13 +31,7 @@ const urlObj = {
   month: `https://api.harvestapp.com/v2/time_entries?from=${startOfMonthYMD}&to=${endOfMonthYMD}&page=`
 };
 
-const requestHeaders = {
-  'user-agent': `Reports (${config.accountEmail})`,
-  'harvest-account-id': `${config.harvestAccountId}`,
-  authorization: `Bearer ${config.bearerToken}`,
-  'accept': 'application/json',
-  'content-type': 'application/json'
-};
+let requestHeaders = {};
 
 function getURL() {
   return urlObj[config.schedule] + page;
@@ -175,6 +170,21 @@ function holidays() {
   });
 }
 
+const getFreshToken = function () {
+  return request('https://id.getharvest.com/api/v1/oauth2/token', {
+    method: 'post',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      refresh_token: config.refreshToken,
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      grant_type: 'refresh_token'
+    })
+  });
+};
+
 const getUserList = function () {
   return request('https://api.harvestapp.com/v2/users', {
     method: 'get',
@@ -185,7 +195,32 @@ const getUserList = function () {
 function main() {
   let users = [];
 
-  getUserList()
+  getFreshToken()
+    .then((res) => {
+      return res.json();
+    })
+    .then((data) => {
+      const newConfig = config;
+      newConfig.updatedAt = Math.round(Date.now() / 100);
+      newConfig.bearerToken = data.access_token;
+      newConfig.refreshToken = data.refresh_token;
+      return writeFile('./config.json', JSON.stringify(newConfig, null, 2));
+    })
+    .then(() => {
+      // update the local config
+      config = require('./config.json');
+
+      // setup the new headers for all requests moving forward
+      requestHeaders = {
+        'user-agent': `Reports (${config.accountEmail})`,
+        'harvest-account-id': `${config.harvestAccountId}`,
+        authorization: `Bearer ${config.bearerToken}`,
+        'accept': 'application/json',
+        'content-type': 'application/json'
+      };
+
+      return getUserList();
+    })
     .then((res) => {
       return res.json();
     })
