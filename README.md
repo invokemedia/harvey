@@ -5,31 +5,38 @@ Harvey
 
 ![harvey screenshot](https://raw.githubusercontent.com/invokemedia/harvey/master/screenshot.png)
 
-### Authentication
+## Setup
+
+* `git clone git@github.com:invokemedia/harvey.git`
+* `cd harvey`
+* `npm install`
+* `cp config-example.json config.json`
+
+### Harvest Authentication
 
 You need to have a Bearer token for an *admin user* before you can use this script.
 
-#### oAuth Page
+Visit the [Harvest Developer Tools](https://id.getharvest.com/developers) and create a new [OAuth2 Application](https://id.getharvest.com/oauth2/clients/new). You can use `localhost` for the redirect_url for now to get started, you don't actually need any working server at this point.
 
-Create an application on Harvest. Then visit the link to the oAuth page using your `client_id`:
+Once you've created an application on Harvest, then visit the below link in your browser to the oAuth page using your `client_id`:
 
 ```
 https://id.getharvest.com/oauth2/authorize?client_id=CLIENT_ID_HERE&response_type=code
 ```
 
-Then you need to get an access code for that user. That will be in the URL that is returned from the oAuth page. It will be something like this:
+Harvest will return to your redirect url with a `code` parameter in the query string. Copy this for the next step. It will look something like this:
 
 ```
-https://app.getpostman.com/oauth2/callback?code=SOME.CODE_WILL_BE_HERE&scope=harvest%3AAPP_ID
+https://localhost/?code=SOME_CODE_WILL_BE_HERE&scope=harvest%3AAPP_ID
 ```
 
-After that, you need to get the a new token for that user:
+After that, you need to get a new token for that user:
 
 ```
 curl --request POST \
   --url https://id.getharvest.com/api/v1/oauth2/token \
   --header 'Content-Type: application/x-www-form-urlencoded' \
-  --data 'code=SOME.CODE_WILL_BE_HERE&client_id=MY_CLIENT_ID_IS_HERE&client_secret=MY_CLIENT_SECRET_IS_HERE&grant_type=authorization_code'
+  --data 'code=SOME_CODE_WILL_BE_HERE&client_id=MY_CLIENT_ID_IS_HERE&client_secret=MY_CLIENT_SECRET_IS_HERE&grant_type=authorization_code'
 ```
 
 That will return a JSON object. You will then use the value in the `access_token` field as the `bearerToken` and the `refresh_token` field as the `refreshToken` in your local `config.json`.
@@ -38,17 +45,17 @@ That will return a JSON object. You will then use the value in the `access_token
 
 Now, the app will automatically refresh the token each time the request is made. This means the token should last forever as a new one is generated and saved over the `config.json` each time.
 
-### Setup
+### Slack Incoming Webhook
 
-* clone this repo
-* `npm install`
-* `cp config-example.json config.json`
-* Fill in the values in the `config.json` file.
-* `npm run test`
-
-You will need to also [setup a Slack Webhook](https://api.slack.com/custom-integrations/incoming-webhooks) for the results to be sent to.
+You will need to also [setup a Slack Webhook](https://api.slack.com/custom-integrations/incoming-webhooks) for the results to be sent to. Copy the Webhook URL into the slackUrl of the `config.json`.
 
 ### Running
+
+* `npm run test`
+
+or
+
+* `npm start`
 
 By changing the `config.schedule` from `week` to `month`, you can control the range for the previous week or month. Be sure to update the `minimumHours` when changing from `week` to `month`.
 
